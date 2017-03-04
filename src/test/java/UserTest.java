@@ -1,7 +1,6 @@
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mockito;
 import static org.junit.Assert.*;
 
@@ -21,6 +20,7 @@ public class UserTest {
 	JSONObject successJSON;
 	JSONObject loggedInJSON;
 	JSONObject invitationsJSON;
+	JSONObject contactsJSON;
 	JSONObject errorJSON;
 	
 	RestClient rc;
@@ -34,6 +34,7 @@ public class UserTest {
 		successJSON = new JSONObject("{\"success\": true}");
 		loggedInJSON = new JSONObject("{\"success\": true, \"auth_token\": \"123123123123\" }");
 		invitationsJSON = new JSONObject("{\"success\": true, \"invitations\": [ { \"name\": \"Friend Name\", \"email\": \"other@example.com\" } ] } ");
+		contactsJSON = new JSONObject("{\"success\": true, \"contacts\": [ { \"name\": \"Contact Name\", \"email\": \"contact@example.com\" } ] } ");
 		errorJSON = new JSONObject("{\"success\": false}");
 		
 		rc = Mockito.mock(RestClient.class);
@@ -105,7 +106,7 @@ public class UserTest {
 	}
 	
 	@Test
-	public void checkInvitations() throws JSONException {
+	public void authorizedCheckInvitations() throws JSONException {
 		signIn();
 		
 		Mockito.when(rc.get(Mockito.eq("/users/invitations"))).thenReturn(invitationsJSON);
@@ -116,6 +117,32 @@ public class UserTest {
 		assertEquals(1, invitations.size());
 		assertEquals("Friend Name", invitations.get(0).getName());
 		assertEquals("other@example.com", invitations.get(0).getEmail());
+	}
+	
+	@Test(expected=UnauthorizedException.class)
+	public void unauthorizedCheckInvitations() throws JSONException {
+		signOut();
+		user.checkInvitations();
+	}
+	
+	@Test
+	public void authorizedGetContactList() throws JSONException {
+		signIn();
+		
+		Mockito.when(rc.get(Mockito.eq("/users/contacts"))).thenReturn(contactsJSON);
+		List<User> contacts = user.getContactList();
+		
+		Mockito.verify(rc, Mockito.times(1)).get("/users/contacts");
+		
+		assertEquals(1, contacts.size());
+		assertEquals("Contact Name", contacts.get(0).getName());
+		assertEquals("contact@example.com", contacts.get(0).getEmail());
+	}
+	
+	@Test(expected=UnauthorizedException.class)
+	public void unauthorizedGetContactList() throws JSONException {
+		signOut();
+		user.getContactList();
 	}
 	
 	private void signIn() throws JSONException {

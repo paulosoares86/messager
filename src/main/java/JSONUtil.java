@@ -3,14 +3,16 @@ import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 public class JSONUtil {
-	public static List<Object> toList(JSONArray jsonArray) {
-		List<Object> list = new ArrayList<Object>();
+	public static List<JSONObject> toList(JSONArray jsonArray) {
+		List<JSONObject> list = new ArrayList<JSONObject>();
 		try {
 			int index = 0;
 			while(jsonArray.opt(index) != null) {
-				list.add(jsonArray.get(index));
+				list.add((JSONObject) jsonArray.get(index));
+				index++;
 			}
 		} catch (JSONException e) {
 			e.printStackTrace();
