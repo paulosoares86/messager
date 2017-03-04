@@ -5,6 +5,8 @@ import org.mockito.Captor;
 import org.mockito.Mockito;
 import static org.junit.Assert.*;
 
+import java.util.List;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -18,7 +20,8 @@ public class UserTest {
 	
 	JSONObject successJSON;
 	JSONObject loggedInJSON;
-	JSONObject loginErrorJSON;
+	JSONObject invitationsJSON;
+	JSONObject errorJSON;
 	
 	RestClient rc;
 	User user;
@@ -30,7 +33,8 @@ public class UserTest {
 		jsonCaptor = ArgumentCaptor.forClass(JSONObject.class);
 		successJSON = new JSONObject("{\"success\": true}");
 		loggedInJSON = new JSONObject("{\"success\": true, \"auth_token\": \"123123123123\" }");
-		loginErrorJSON = new JSONObject("{\"success\": false}");
+		invitationsJSON = new JSONObject("{\"success\": true, \"invitations\": [ { \"name\": \"Friend Name\", \"email\": \"other@example.com\" } ] } ");
+		errorJSON = new JSONObject("{\"success\": false}");
 		
 		rc = Mockito.mock(RestClient.class);
 		user = new User(rc);
@@ -50,9 +54,9 @@ public class UserTest {
 	
 	@Test
 	public void failLogin() throws JSONException {
-		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(loginErrorJSON);
+		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(errorJSON);
 		
-		boolean logedIn = user.logIn(email, password);
+		boolean logedIn = user.login(email, password);
 		Mockito.verify(rc, Mockito.times(1)).post(Mockito.eq("/users/sign_in"), jsonCaptor.capture());
 		
 		assertFalse(logedIn);
@@ -63,7 +67,7 @@ public class UserTest {
 	public void successLogin() throws JSONException {
 		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(loggedInJSON);
 		
-		boolean logedIn = user.logIn(email, password);
+		boolean logedIn = user.login(email, password);
 		Mockito.verify(rc, Mockito.times(1)).post(Mockito.eq("/users/sign_in"), jsonCaptor.capture());
 		
 		assertEquals(email, jsonCaptor.getValue().get("email"));
@@ -72,9 +76,25 @@ public class UserTest {
 		assertTrue(User.isLoggedIn());
 		assertEquals(User.getAuthToken(), "123123123123");
 	}
-
+	
 	@Test
-	public void connectTo() throws JSONException {
+	public void logout() throws JSONException {
+		boolean loggedOut = user.logout();
+		assertTrue(loggedOut);
+		assertFalse(User.isLoggedIn());
+		assertEquals(User.getAuthToken(), null);
+	}
+
+	@Test(expected=UnauthorizedException.class)
+	public void unauthorizedConnectTo() throws JSONException {
+		signOut();
+		user.connectTo(otherEmail);
+	}
+	
+	@Test
+	public void authorizedConnectTo() throws JSONException {
+		signIn();
+		
 		Mockito.when(rc.post(Mockito.eq("/users/connect"), Mockito.any(JSONObject.class))).thenReturn(successJSON);
 		boolean isConnected = user.connectTo(otherEmail);
 		
@@ -82,5 +102,29 @@ public class UserTest {
 		
 		assertTrue(isConnected);
 		assertEquals(otherEmail, jsonCaptor.getValue().get("friend_email"));
+	}
+	
+	@Test
+	public void checkInvitations() throws JSONException {
+		signIn();
+		
+		Mockito.when(rc.get(Mockito.eq("/users/invitations"))).thenReturn(invitationsJSON);
+		List<User> invitations = user.checkInvitations();
+		
+		Mockito.verify(rc, Mockito.times(1)).get("/users/invitations");
+		
+		assertEquals(1, invitations.size());
+		assertEquals("Friend Name", invitations.get(0).getName());
+		assertEquals("other@example.com", invitations.get(0).getEmail());
+	}
+	
+	private void signIn() throws JSONException {
+		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(loggedInJSON);
+		user.login(email, password);
+	}
+	
+	private void signOut() throws JSONException {
+		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(loggedInJSON);
+		user.logout();
 	}
 }
