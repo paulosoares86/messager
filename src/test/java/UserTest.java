@@ -4,6 +4,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import static org.junit.Assert.*;
 
+import java.util.HashMap;
 import java.util.List;
 
 import org.json.JSONException;
@@ -17,11 +18,7 @@ public class UserTest {
 	String otherEmail = "other@example.com";
 	String password = "password320";
 	
-	JSONObject successJSON;
-	JSONObject loggedInJSON;
-	JSONObject invitationsJSON;
-	JSONObject contactsJSON;
-	JSONObject errorJSON;
+	HashMap<String, JSONObject> jsonMessages = new HashMap<String, JSONObject>();
 	
 	RestClient rc;
 	User user;
@@ -31,19 +28,22 @@ public class UserTest {
 	@Before
 	public void setup() throws JSONException {
 		jsonCaptor = ArgumentCaptor.forClass(JSONObject.class);
-		successJSON = new JSONObject("{\"success\": true}");
-		loggedInJSON = new JSONObject("{\"success\": true, \"auth_token\": \"123123123123\" }");
-		invitationsJSON = new JSONObject("{\"success\": true, \"invitations\": [ { \"name\": \"Friend Name\", \"email\": \"other@example.com\" } ] } ");
-		contactsJSON = new JSONObject("{\"success\": true, \"contacts\": [ { \"name\": \"Contact Name\", \"email\": \"contact@example.com\" } ] } ");
-		errorJSON = new JSONObject("{\"success\": false}");
+		jsonMessages.put("success", new JSONObject("{\"success\": true}"));
+		jsonMessages.put("loggedIn", new JSONObject("{\"success\": true, \"auth_token\": \"123123123123\" }"));
+		jsonMessages.put("invitations", new JSONObject("{\"success\": true, \"invitations\": [ { \"name\": \"Friend Name\", \"email\": \"other@example.com\" } ] } "));
+		jsonMessages.put("contacts", new JSONObject("{\"success\": true, \"contacts\": [ { \"name\": \"Contact Name\", \"email\": \"contact@example.com\" } ] } "));
+		jsonMessages.put("chatRooms", new JSONObject("{\"success\": true, \"chat_rooms\": [ { \"name\": \"Contact Name\", \"id\": 111 }, { \"name\": \"Contact2\", \"id\": 123 }, { \"name\": \"Contact 3\", \"id\": 333 } ] } "));
+		jsonMessages.put("messages", new JSONObject("{\"success\": true, \"messages\": [ { \"chat_room_id\": 123, \"text\": \"hello\" }, { \"chat_room_id\": 111, \"text\": \"world!\" } ] } "));
+		jsonMessages.put("error", new JSONObject("{\"success\": false}"));
 		
 		rc = Mockito.mock(RestClient.class);
-		user = new User(rc);
+		User.setRestClient(rc);
+		user = new User();
 	}
 
 	@Test
 	public void signUp() throws JSONException {
-		Mockito.when(rc.post(Mockito.eq("/users/sign_up"), Mockito.any(JSONObject.class))).thenReturn(successJSON);
+		Mockito.when(rc.post(Mockito.eq("/users/sign_up"), Mockito.any(JSONObject.class))).thenReturn(jsonMessages.get("success"));
 		    
 		boolean signedUp = user.signUp(name, email);
 		Mockito.verify(rc, Mockito.times(1)).post(Mockito.eq("/users/sign_up"), jsonCaptor.capture());
@@ -55,7 +55,7 @@ public class UserTest {
 	
 	@Test
 	public void failLogin() throws JSONException {
-		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(errorJSON);
+		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(jsonMessages.get("error"));
 		
 		boolean logedIn = user.login(email, password);
 		Mockito.verify(rc, Mockito.times(1)).post(Mockito.eq("/users/sign_in"), jsonCaptor.capture());
@@ -66,7 +66,7 @@ public class UserTest {
 	
 	@Test
 	public void successLogin() throws JSONException {
-		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(loggedInJSON);
+		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(jsonMessages.get("loggedIn"));
 		
 		boolean logedIn = user.login(email, password);
 		Mockito.verify(rc, Mockito.times(1)).post(Mockito.eq("/users/sign_in"), jsonCaptor.capture());
@@ -96,7 +96,7 @@ public class UserTest {
 	public void authorizedConnectTo() throws JSONException {
 		signIn();
 		
-		Mockito.when(rc.post(Mockito.eq("/users/connect"), Mockito.any(JSONObject.class))).thenReturn(successJSON);
+		Mockito.when(rc.post(Mockito.eq("/users/connect"), Mockito.any(JSONObject.class))).thenReturn(jsonMessages.get("success"));
 		boolean isConnected = user.connectTo(otherEmail);
 		
 		Mockito.verify(rc, Mockito.times(1)).post(Mockito.eq("/users/connect"), jsonCaptor.capture());
@@ -109,7 +109,7 @@ public class UserTest {
 	public void authorizedCheckInvitations() throws JSONException {
 		signIn();
 		
-		Mockito.when(rc.get(Mockito.eq("/users/invitations"))).thenReturn(invitationsJSON);
+		Mockito.when(rc.get(Mockito.eq("/users/invitations"))).thenReturn(jsonMessages.get("invitations"));
 		List<User> invitations = user.checkInvitations();
 		
 		Mockito.verify(rc, Mockito.times(1)).get("/users/invitations");
@@ -129,7 +129,7 @@ public class UserTest {
 	public void authorizedGetContactList() throws JSONException {
 		signIn();
 		
-		Mockito.when(rc.get(Mockito.eq("/users/contacts"))).thenReturn(contactsJSON);
+		Mockito.when(rc.get(Mockito.eq("/users/contacts"))).thenReturn(jsonMessages.get("contacts"));
 		List<User> contacts = user.getContactList();
 		
 		Mockito.verify(rc, Mockito.times(1)).get("/users/contacts");
@@ -145,13 +145,58 @@ public class UserTest {
 		user.getContactList();
 	}
 	
+	@Test
+	public void authorizedGetChatRooms() throws JSONException {
+		signIn();
+		
+		Mockito.when(rc.get(Mockito.eq("/users/chat_rooms"))).thenReturn(jsonMessages.get("chatRooms"));
+		List<ChatRoom> rooms = user.getChatRooms();
+		
+		Mockito.verify(rc, Mockito.times(1)).get("/users/chat_rooms");
+		
+		assertEquals(3, rooms.size());
+		assertEquals(111, rooms.get(0).getId());
+		assertEquals(123, rooms.get(1).getId());
+		assertEquals(333, rooms.get(2).getId());
+	}
+	
+	@Test(expected=UnauthorizedException.class)
+	public void unauthorizedGetChatRooms() throws JSONException {
+		signOut();
+		user.getChatRooms();
+	}
+	
+	@Test
+	public void authorizedGetMessages() throws JSONException {
+		signIn();
+		
+		Mockito.when(rc.get(Mockito.eq("/users/messages"))).thenReturn(jsonMessages.get("messages"));
+		List<Message> messages = user.getMessages();
+		
+		Mockito.verify(rc, Mockito.times(1)).get("/users/messages");
+		
+		assertEquals(2, messages.size());
+		
+		assertEquals(123, messages.get(0).getChatRoomId());
+		assertEquals("hello", messages.get(0).getText());
+		
+		assertEquals(111, messages.get(1).getChatRoomId());
+		assertEquals("world!", messages.get(1).getText());
+	}
+	
+	@Test(expected=UnauthorizedException.class)
+	public void unauthorizedGetMessages() throws JSONException {
+		signOut();
+		user.getMessages();
+	}
+	
 	private void signIn() throws JSONException {
-		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(loggedInJSON);
+		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(jsonMessages.get("loggedIn"));
 		user.login(email, password);
 	}
 	
 	private void signOut() throws JSONException {
-		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(loggedInJSON);
+		Mockito.when(rc.post(Mockito.eq("/users/sign_in"), Mockito.any(JSONObject.class))).thenReturn(jsonMessages.get("loggedIn"));
 		user.logout();
 	}
 }
