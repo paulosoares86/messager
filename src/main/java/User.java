@@ -11,14 +11,28 @@ public class User {
 	
 	public boolean signUp(String name, String email) {
 		try {
-			MyJSON payload = new MyJSON();
+			JSONObject payload = new JSONObject();
 			payload.put("email", email);
 			payload.put("name", name);
-			MyJSON res = restClient.post("/users/sign_up", payload);
+			JSONObject res = restClient.post("/users/sign_up", payload);
 			return res.getBoolean("success");
 		} catch (JSONException e) {
 			e.printStackTrace();
 			return false;
 		}
+	}
+
+	public boolean logIn(String email, String password) {
+		try {
+			JSONObject payload = new JSONObject();
+			payload.put("email", email);
+			payload.put("password", password);
+			JSONObject res = restClient.post("/users/sign_in", payload);
+			return res.getBoolean("success");
+		} catch (JSONException e) {
+			e.printStackTrace();
+			return false;
+		}
+		
 	}
 }

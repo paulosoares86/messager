@@ -3,25 +3,26 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import net.sf.corn.httpclient.*;
 import net.sf.corn.httpclient.HttpResponse;
 
 public class RestClient {
 
-	public MyJSON get(String url) {
+	public JSONObject get(String url) {
 		return sendData(HttpClient.HTTP_METHOD.GET, url, null);
 	}
 	
-	public MyJSON post(String url, MyJSON json) {
+	public JSONObject post(String url, JSONObject json) {
 		return sendData(HttpClient.HTTP_METHOD.POST, url, json);
 	}
 	
-	private MyJSON sendData(HttpClient.HTTP_METHOD method, String url, MyJSON body) {
+	private JSONObject sendData(HttpClient.HTTP_METHOD method, String url, JSONObject body) {
 		try {
 			HttpClient client = new HttpClient(new URI(url));
 			HttpResponse res = body == null ? client.sendData(method) : client.sendData(method, body.toString());
-			return new MyJSON(res.getData());
+			return new JSONObject(res.getData());
 		} catch (IOException e) {
 			return buildErrorJSON("Could not connect to server: " + e.getMessage());
 		} catch (URISyntaxException e) {
@@ -31,8 +32,8 @@ public class RestClient {
 		}
 	}
 	
-	private MyJSON buildErrorJSON(String message) {
-		MyJSON ret = new MyJSON();
+	private JSONObject buildErrorJSON(String message) {
+		JSONObject ret = new JSONObject();
 		try {
 			ret.put("success", false);
 			ret.put("error", message);
