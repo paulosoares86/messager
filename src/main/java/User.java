@@ -151,7 +151,7 @@ public class User {
 		}
 	}
 
-	private void checkIsLoggedIn(String methodName) {
+	public static void checkIsLoggedIn(String methodName) {
 		if (isLoggedIn()) return; 
 		String msg = "Unauthorized call for " + methodName;
 		throw new UnauthorizedException(msg);

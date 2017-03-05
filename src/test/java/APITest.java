@@ -11,7 +11,7 @@ import java.util.List;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class UserTest {	
+public class APITest {	
 
 	String loginUrl = "http://localhost:8000/users/sign_in";
 	String name = "Test User";
@@ -36,11 +36,15 @@ public class UserTest {
 		jsonMessages.put("chatRooms", new JSONObject("{\"success\": true, \"chat_rooms\": [ { \"name\": \"Contact Name\", \"id\": 111 }, { \"name\": \"Contact2\", \"id\": 123 }, { \"name\": \"Contact 3\", \"id\": 333 } ] } "));
 		jsonMessages.put("createdChatRoom", new JSONObject("{\"success\": true, \"chat_room\": { \"name\": \"Contact Name\", \"id\": 111 } } "));
 		jsonMessages.put("messages", new JSONObject("{\"success\": true, \"messages\": [ { \"chat_room_id\": 123, \"text\": \"hello\" }, { \"chat_room_id\": 111, \"text\": \"world!\" } ] } "));
+		jsonMessages.put("message", new JSONObject("{\"success\": true, \"message\": { \"chat_room_id\": 123, \"text\": \"msg to room 123\" } } "));
 		jsonMessages.put("error", new JSONObject("{\"success\": false}"));
 		
 		rc = Mockito.mock(RestClient.class);
+		
 		User.setRestClient(rc);
 		user = new User();
+		
+		Message.setRestClient(rc);
 	}
 
 	@Test
@@ -213,6 +217,25 @@ public class UserTest {
 	public void unauthorizedGetMessages() throws JSONException {
 		signOut();
 		user.getMessages();
+	}
+	
+	@Test
+	public void authorizedSendMessages() throws JSONException {
+		signIn();
+		
+		Mockito.when(rc.post(Mockito.eq("/messages"), Mockito.any(JSONObject.class))).thenReturn(jsonMessages.get("message"));
+		Message.send(123, "msg to room 123");
+		
+		Mockito.verify(rc, Mockito.times(1)).post(Mockito.eq("/messages"), jsonCaptor.capture());
+		
+		assertEquals(123, jsonCaptor.getValue().get("chat_room_id"));
+		assertEquals("msg to room 123", jsonCaptor.getValue().get("text"));
+	}
+	
+	@Test(expected=UnauthorizedException.class)
+	public void unauthorizedSendMessages() throws JSONException {
+		signOut();
+		Message.send(123, "msg to room 123");
 	}
 	
 	private void signIn() throws JSONException {
