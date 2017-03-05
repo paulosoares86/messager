@@ -26,10 +26,8 @@ public class User {
 
 	public boolean signUp(String name, String email) {
 		try {
-			JSONObject payload = new JSONObject();
-			payload.put("email", email);
-			payload.put("name", name);
-			JSONObject res = restClient.post("/users/sign_up", payload);
+			User user = new User(name, email);
+			JSONObject res = restClient.post("/users/sign_up", user.toJSON());
 			return res.getBoolean("success");
 		} catch (JSONException e) {
 			e.printStackTrace();
@@ -104,6 +102,23 @@ public class User {
 		return ret;
 	}
 	
+	public ChatRoom createChatRoom(ArrayList<User> users) {
+		checkIsLoggedIn("createChatRoom");
+		try {
+			JSONObject payload = new JSONObject();
+			payload.put("users", users);
+			JSONObject res = restClient.post("/users/chat_rooms", payload);
+			if (!res.getBoolean("success")) {
+				return null;
+			} else {
+				return new ChatRoom((JSONObject) res.get("chat_room"));
+			}
+		} catch (JSONException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
 	public static boolean isLoggedIn() {
 		return authToken != null;
 	}
@@ -137,14 +152,11 @@ public class User {
 	}
 
 	private void checkIsLoggedIn(String methodName) {
-		if (!isLoggedIn()) {
-			String msg = "Unauthorized call for " + methodName;
-			throw new UnauthorizedException(msg);
-		}
+		if (isLoggedIn()) return; 
+		String msg = "Unauthorized call for " + methodName;
+		throw new UnauthorizedException(msg);
 	}
 	
-	// getters and setters
-
 	public String getEmail() {
 		return email;
 	}
@@ -163,6 +175,13 @@ public class User {
 
 	public static void setRestClient(RestClient _restClient) {
 		restClient = _restClient;
+	}
+	
+	private JSONObject toJSON() throws JSONException {
+		JSONObject payload = new JSONObject();
+		payload.put("email", this.email);
+		payload.put("name", this.name);
+		return payload;
 	}
 
 }

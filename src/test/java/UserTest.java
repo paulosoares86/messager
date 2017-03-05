@@ -4,6 +4,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import static org.junit.Assert.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -33,6 +34,7 @@ public class UserTest {
 		jsonMessages.put("invitations", new JSONObject("{\"success\": true, \"invitations\": [ { \"name\": \"Friend Name\", \"email\": \"other@example.com\" } ] } "));
 		jsonMessages.put("contacts", new JSONObject("{\"success\": true, \"contacts\": [ { \"name\": \"Contact Name\", \"email\": \"contact@example.com\" } ] } "));
 		jsonMessages.put("chatRooms", new JSONObject("{\"success\": true, \"chat_rooms\": [ { \"name\": \"Contact Name\", \"id\": 111 }, { \"name\": \"Contact2\", \"id\": 123 }, { \"name\": \"Contact 3\", \"id\": 333 } ] } "));
+		jsonMessages.put("createdChatRoom", new JSONObject("{\"success\": true, \"chat_room\": { \"name\": \"Contact Name\", \"id\": 111 } } "));
 		jsonMessages.put("messages", new JSONObject("{\"success\": true, \"messages\": [ { \"chat_room_id\": 123, \"text\": \"hello\" }, { \"chat_room_id\": 111, \"text\": \"world!\" } ] } "));
 		jsonMessages.put("error", new JSONObject("{\"success\": false}"));
 		
@@ -164,6 +166,29 @@ public class UserTest {
 	public void unauthorizedGetChatRooms() throws JSONException {
 		signOut();
 		user.getChatRooms();
+	}
+	
+	@Test
+	public void authorizedCreateChatRoom() throws JSONException {
+		signIn();
+		
+		Mockito.when(rc.post(Mockito.eq("/users/chat_rooms"), Mockito.any(JSONObject.class))).thenReturn(jsonMessages.get("createdChatRoom"));
+		ArrayList<User> users = new ArrayList<User>();
+		users.add(new User("Friend", "friend@example.com"));
+		ChatRoom room = user.createChatRoom(users);
+		
+		Mockito.verify(rc, Mockito.times(1)).post(Mockito.eq("/users/chat_rooms"), jsonCaptor.capture());
+		
+		assertNotEquals(0, room.getId());
+		assertEquals("Contact Name", room.getName());
+	}
+	
+	@Test(expected=UnauthorizedException.class)
+	public void unauthorizedCreateChatRoom() throws JSONException {
+		signOut();
+		ArrayList<User> users = new ArrayList<User>();
+		users.add(new User("Friend", "friend@example.com"));
+		user.createChatRoom(users);
 	}
 	
 	@Test
